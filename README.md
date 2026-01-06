@@ -1,22 +1,18 @@
-Here is the revised `README.md` formatted to match the technical and austere style of a Chromium repository or high-standard open-source infrastructure project.
-
----
-
 # Zillow Scraper
 
-A command-line interface tool for extracting real estate listing data from Zillow. This utility utilizes `SeleniumBase` (Undetected ChromeDriver) to circumvent automated bot detection systems and implements a scroll heuristics engine to handle lazy-loaded DOM elements.
+A robust extraction engine for retrieving real estate listing data from Zillow. This utility leverages `SeleniumBase` (Undetected ChromeDriver) to circumvent automated bot detection systems and implements a heuristics engine to manage lazy-loaded DOM elements.
 
 ## Overview
 
-This tool provides a mechanism to programmatically retrieve property data—including pricing, address, structural details (beds, baths, square footage), and listing URLs—from Zillow search result pages. It is designed to operate in environments where standard HTTP requests fail due to TLS fingerprinting or CAPTCHA challenges.
+This package provides a mechanism to programmatically retrieve property data—including pricing, address, structural details (beds, baths, square footage), and listing URLs—from Zillow search result pages. It is designed for environments where standard HTTP requests fail due to TLS fingerprinting or CAPTCHA challenges.
 
 ## Features
 
 * **Bot Detection Evasion**: Implements an undetected browser instance to bypass Cloudflare/Akamai security layers.
 * **Lazy Loading Handler**: Simulates human-like scroll events to trigger AJAX requests for paginated data, ensuring complete dataset retrieval.
-* **Structured Parsing**: Utilizes `BeautifulSoup` with stable selector targeting (`data-test` attributes) to maximize resilience against frontend regressions.
+* **Async API**: Non-blocking asynchronous interface for integration into modern Python applications.
+* **Structured Parsing**: Utilizes `BeautifulSoup` with stable selector targeting (`data-test` attributes).
 * **Data Serialization**: Exports extracted entities to CSV format with ISO 8601 timestamping.
-* **Logging**: Streams execution logs to file for auditing and debugging purposes.
 
 ## Prerequisites
 
@@ -26,105 +22,94 @@ This tool provides a mechanism to programmatically retrieve property data—incl
 
 ## Installation
 
-This project is managed via `uv`. To install the package in editable mode for local development:
+### Library Integration (Recommended)
+To add the scraper as a dependency in your existing Python project:
 
 ```bash
-git clone https://github.com/yourusername/zillow-scraper.git
-cd zillow-scraper
-uv pip install -e .
+uv add git+[https://github.com/dev-ansung/zillow-scraper.git](https://github.com/dev-ansung/zillow-scraper.git)
 
 ```
 
-*Note: The installation process automatically pulls `seleniumbase` and `beautifulsoup4` dependencies.*
+### CLI Tool Installation
+
+To install the package globally as a standalone command-line tool:
+
+```bash
+uv tool install git+[https://github.com/dev-ansung/zillow-scraper.git](https://github.com/dev-ansung/zillow-scraper.git)
+
+```
 
 ## Usage
 
-Upon installation, the `zillow-scrape` entry point is registered in the environment path.
+### Library Usage (Python)
 
-### Command Line Interface
+The package exposes a high-level asynchronous API, `fetch_listings`, designed for seamless integration into application event loops.
 
-```bash
-zillow-scrape [URL] [OPTIONS]
+```python
+import asyncio
+from zillow_scraper import fetch_listings
 
-```
+async def main():
+    # Execute the scraping pipeline
+    properties = await fetch_listings(
+        url="[https://www.zillow.com/mountain-view-ca-94043](https://www.zillow.com/mountain-view-ca-94043)", 
+        headless=True
+    )
+    
+    print(f"Extracted {len(properties)} listings:")
+    for p in properties:
+        print(f"[{p.timestamp}] {p.price} - {p.address}")
 
-### Arguments
-
-* `URL`: The target Zillow search URL (Required).
-
-### Options
-
-* `--headless`: Execute in headless mode without a visible UI window.
-* `--csv [FILE_PATH]`: Define the output path for the CSV file. If omitted, the file is saved to `./output/` with a generated timestamp.
-* `-h`, `--help`: Show the help message and exit.
-
-### Examples
-
-**Standard execution:**
-
-```bash
-uv run zillow-scrape "https://www.zillow.com/mountain-view-ca-94043"
+if __name__ == "__main__":
+    asyncio.run(main())
 
 ```
 
-**Execution with specific output path:**
+### Command Line Usage
+
+If installed via `uv tool`, the `zillow-scrape` command is available directly:
 
 ```bash
-uv run zillow-scrape "https://www.zillow.com/mountain-view-ca-94043" --csv /data/extracts/mv_homes.csv
+zillow-scrape "[https://www.zillow.com/mountain-view-ca-94043](https://www.zillow.com/mountain-view-ca-94043)" --csv output.csv
 
 ```
 
-**Headless execution:**
+**Options:**
 
-```bash
-uv run zillow-scrape "https://www.zillow.com/mountain-view-ca-94043" --headless
-
-```
+* `--headless`: Execute without a visible UI window.
+* `--csv [PATH]`: Define the output path for the CSV file. Defaults to `./output/`.
 
 ## Output Artifacts
 
-The application generates output in the `./output` directory relative to the execution root:
+The application generates artifacts in the `./output` directory relative to the execution root:
 
-* **Logs**: stored in `./output/logs/YYYYMMDD_HHMMSS.log`. Contains runtime events, debug information, and error traces.
-* **Data**: stored in `./output/results_YYYYMMDD_HHMMSS.csv` (default). Contains the scraped dataset.
+* **Logs**: `./output/logs/YYYYMMDD_HHMMSS.log` (Runtime events and debug traces).
+* **Data**: `./output/results_YYYYMMDD_HHMMSS.csv` (Scraped dataset).
 
 ## Development
 
 ### Project Structure
 
-* `zillow_scraper/`: Source code package.
-* `cli.py`: Entry point and argument parsing.
+* `zillow_scraper/`: Core package.
+* `api.py`: Asynchronous public API.
 * `browsers.py`: SeleniumBase wrapper and scrolling logic.
 * `parsers.py`: HTML parsing logic.
-* `services.py`: Application orchestration.
+* `services.py`: Pipeline orchestration.
 * `models.py`: Data transfer objects.
 
 
 * `tests/`: Unit tests and HTML fixtures.
 
-### Testing
-
-Unit tests are implemented using `pytest`. Tests validate parsing logic against static HTML fixtures to ensure stability independent of live site availability.
+### Testing & Quality
 
 ```bash
+# Run unit tests
 uv run pytest
 
-```
-
-### Linting and Formatting
-
-This project enforces code style using `ruff`.
-
-**Check for linting errors:**
-
-```bash
+# Check for linting errors
 uv run ruff check .
 
-```
-
-**Apply formatting:**
-
-```bash
+# Apply formatting
 uv run ruff format .
 
 ```
@@ -133,13 +118,9 @@ uv run ruff format .
 
 ### Zero Results Returned
 
-If the tool returns 0 listings or terminates immediately, Zillow may have presented a CAPTCHA or a "Press and Hold" challenge.
-**Resolution**: Run the tool without the `--headless` flag. Manually solve the challenge in the browser window. The script will detect the DOM update and resume execution.
-
-### Module Not Found Errors
-
-If `ImportError` or `ModuleNotFoundError` occurs, ensure the command is executed via `uv run` to utilize the correct virtual environment context.
+If the tool returns 0 listings, Zillow may have presented a CAPTCHA.
+**Resolution**: Set `headless=False` (in Python) or remove the `--headless` flag (in CLI). Manually solve the challenge in the browser window; execution will resume automatically.
 
 ## Disclaimer
 
-This software is for educational and research purposes only. The scraping of Zillow data may violate the Zillow Terms of Use. The maintainers of this repository assume no liability for misuse of this software or any resulting IP blocks.
+This software is for educational and research purposes only. Scraping Zillow data may violate their Terms of Use. The maintainers assume no liability for misuse or IP blocks.
