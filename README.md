@@ -43,6 +43,8 @@ uv tool install git+https://github.com/dev-ansung/zillow-scraper.git
 
 ### Library Usage (Python)
 
+#### Fetch Listings by Location
+
 The package exposes a high-level asynchronous API, `fetch_listings`, designed for seamless integration into application event loops.
 
 ```python
@@ -65,17 +67,59 @@ if __name__ == "__main__":
 
 ```
 
+#### Fetch Property Details by Address
+
+New in this version: You can now fetch detailed information for a specific property by providing its address.
+
+```python
+import asyncio
+from zillow_scraper import fetch_property_by_address
+
+async def main():
+    # Fetch detailed property information by address
+    property_data = await fetch_property_by_address(
+        address="123 Main St, Mountain View, CA 94043",
+        headless=True
+    )
+    
+    if property_data:
+        print(f"Address: {property_data.address}")
+        print(f"Price: {property_data.price}")
+        print(f"Beds: {property_data.beds}, Baths: {property_data.baths}")
+        print(f"Square Feet: {property_data.sqft}")
+        print(f"Property Type: {property_data.property_type}")
+        print(f"Year Built: {property_data.year_built}")
+        print(f"Lot Size: {property_data.lot_size}")
+        print(f"HOA: {property_data.hoa}")
+    else:
+        print("Property not found")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
+
 ### Command Line Usage
 
 If installed via `uv tool`, the `zillow-scrape` command is available directly:
 
+#### Scrape by URL (Location)
+
 ```bash
-zillow-scrape "[https://www.zillow.com/mountain-view-ca-94043](https://www.zillow.com/mountain-view-ca-94043)" --csv output.csv
+zillow-scrape "https://www.zillow.com/mountain-view-ca-94043" --csv output.csv
+
+```
+
+#### Fetch by Address
+
+```bash
+zillow-scrape "123 Main St, Mountain View, CA 94043" --address --csv output.csv
 
 ```
 
 **Options:**
 
+* `--address`: Treat the target as an address and fetch detailed property information.
 * `--headless`: Execute without a visible UI window.
 * `--csv [PATH]`: Define the output path for the CSV file. Defaults to `./output/`.
 
@@ -84,7 +128,7 @@ zillow-scrape "[https://www.zillow.com/mountain-view-ca-94043](https://www.zillo
 The application generates artifacts in the `./output` directory relative to the execution root:
 
 * **Logs**: `./output/logs/YYYYMMDD_HHMMSS.log` (Runtime events and debug traces).
-* **Data**: `./output/results_YYYYMMDD_HHMMSS.csv` (Scraped dataset).
+* **Data**: `./output/results_YYYYMMDD_HHMMSS.csv` (Scraped dataset with columns: Scraped_At, Price, Beds, Baths, Sqft, Address, Link, Property_Type, Year_Built, Lot_Size, HOA).
 
 ## Development
 
