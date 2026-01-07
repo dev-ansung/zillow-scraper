@@ -52,7 +52,7 @@ from zillow_scraper import fetch_listings
 async def main():
     # Execute the scraping pipeline
     properties = await fetch_listings(
-        url="[https://www.zillow.com/mountain-view-ca-94043](https://www.zillow.com/mountain-view-ca-94043)", 
+        url="https://www.zillow.com/mountain-view-ca-94043", 
         headless=True
     )
     
