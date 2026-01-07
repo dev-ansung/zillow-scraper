@@ -114,7 +114,7 @@ class ZillowService:
             # since the current one will be closed
             from .browsers import SmartScrollerBrowser
 
-            detail_browser = SmartScrollerBrowser(headless=self.browser.driver.headless)
+            detail_browser = SmartScrollerBrowser(headless=self.browser.headless)
             detail_service = ZillowService(detail_browser, self.parser)
 
             return detail_service.fetch_property_detail(property_url)

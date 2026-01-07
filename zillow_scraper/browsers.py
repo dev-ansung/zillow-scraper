@@ -11,6 +11,7 @@ from .interfaces import IPageSourceProvider
 class SmartScrollerBrowser(IPageSourceProvider):
     def __init__(self, headless=False):
         self.logger = logging.getLogger("Browser")
+        self.headless = headless
         # uc=True is essential for bypassing Zillow bot detection
         self.driver = Driver(uc=True, headless=headless)
 

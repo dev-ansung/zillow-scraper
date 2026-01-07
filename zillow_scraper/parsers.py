@@ -68,6 +68,19 @@ class ZillowExactParser(IParser):
 class ZillowPropertyDetailParser:
     """Parser for individual property detail pages."""
 
+    @staticmethod
+    def _clean_sqft_value(text: str) -> str:
+        """
+        Cleans and extracts square footage value from text.
+
+        Args:
+            text (str): Raw text containing square footage information.
+
+        Returns:
+            str: Cleaned square footage value.
+        """
+        return text.replace("sqft", "").replace("sq. ft.", "").replace(",", "").strip()
+
     def parse_detail(self, html_content: str) -> Optional[PropertyData]:
         """
         Parses a Zillow property detail page and extracts comprehensive information.
@@ -116,9 +129,7 @@ class ZillowPropertyDetailParser:
                     elif "bath" in text or "ba" in text:
                         baths = text.split()[0]
                     elif "sqft" in text or "sq. ft" in text:
-                        sqft = (
-                            text.replace("sqft", "").replace("sq. ft.", "").replace(",", "").strip()
-                        )
+                        sqft = self._clean_sqft_value(text)
 
             # Fallback: Try the summary section
             if beds == "N/A" or baths == "N/A" or sqft == "N/A":
@@ -132,12 +143,7 @@ class ZillowPropertyDetailParser:
                         elif "bath" in text and baths == "N/A":
                             baths = text.split()[0]
                         elif ("sqft" in text or "sq. ft" in text) and sqft == "N/A":
-                            sqft = (
-                                text.replace("sqft", "")
-                                .replace("sq. ft.", "")
-                                .replace(",", "")
-                                .strip()
-                            )
+                            sqft = self._clean_sqft_value(text)
 
             # Extract additional details
             property_type = "N/A"
