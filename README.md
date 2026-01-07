@@ -43,6 +43,8 @@ uv tool install git+https://github.com/dev-ansung/zillow-scraper.git
 
 ### Library Usage (Python)
 
+#### Fetch Listings by Location
+
 The package exposes a high-level asynchronous API, `fetch_listings`, designed for seamless integration into application event loops.
 
 ```python
@@ -50,7 +52,7 @@ import asyncio
 from zillow_scraper import fetch_listings
 
 async def main():
-    # Execute the scraping pipeline
+    # Execute the scraping pipeline for a location
     properties = await fetch_listings(
         url="https://www.zillow.com/mountain-view-ca-94043", 
         headless=True
@@ -65,26 +67,107 @@ if __name__ == "__main__":
 
 ```
 
+#### Fetch Comprehensive Property Details by Address or URL
+
+Fetch detailed information for a specific property by providing either an address or a direct Zillow property URL. Returns a comprehensive `PropertyDetail` object with extensive information.
+
+```python
+import asyncio
+from zillow_scraper import fetch_property_by_address
+
+async def main():
+    # Option 1: By address
+    property_detail = await fetch_property_by_address(
+        address_or_url="1033 Crestview Dr APT 216, Mountain View, CA 94040",
+        headless=True
+    )
+    
+    # Option 2: By Zillow URL
+    property_detail = await fetch_property_by_address(
+        address_or_url="https://www.zillow.com/homedetails/1033-Crestview-Dr-APT-216-Mountain-View-CA-94040/19538316_zpid/",
+        headless=True
+    )
+    
+    if property_detail:
+        # Access detailed information
+        print(f"Address: {property_detail.address.street}, {property_detail.address.city}")
+        print(f"Price: ${property_detail.price_details.list_price}")
+        print(f"Bedrooms: {property_detail.property_basics.bedrooms}")
+        print(f"Home Type: {property_detail.property_basics.home_type}")
+        print(f"HOA: ${property_detail.community_amenities.hoa_fee_monthly}/mo")
+        
+        # Export to JSON
+        json_data = property_detail.to_json(indent=2)
+        print(json_data)
+    else:
+        print("Property not found")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+
+```
+
 ### Command Line Usage
 
-If installed via `uv tool`, the `zillow-scrape` command is available directly:
+If installed via `uv tool`, the `zillow-scrape` command is available directly. The CLI automatically detects whether you're providing a URL or an address.
+
+#### Scrape Listings by Location
 
 ```bash
-zillow-scrape "[https://www.zillow.com/mountain-view-ca-94043](https://www.zillow.com/mountain-view-ca-94043)" --csv output.csv
+zillow-scrape "https://www.zillow.com/mountain-view-ca-94043" --csv output.csv
+
+```
+
+#### Fetch Property Details by Address
+
+Returns comprehensive JSON with detailed property information:
+
+```bash
+zillow-scrape "1033 Crestview Dr APT 216, Mountain View, CA 94040"
+
+```
+
+Output will be a JSON object with the following structure:
+- `address`: Street, city, state, ZIP code
+- `price_details`: List price, price per sqft, monthly payment estimate, Zestimate, tax info
+- `property_basics`: Home type, bedrooms, bathrooms, square footage, year built, stories, zoning, parcel number
+- `interior_features`: Flooring, kitchen, bathroom features, laundry, cooling, heating, highlights
+- `community_amenities`: HOA fees, parking, pool, accessibility, storage
+- `location_scores`: Walk score, transit score, bike score
+- `nearby_schools`: Names, ratings, grades
+- `listing_info`: Status, days on Zillow, MLS number, agent, last updated
+
+#### Fetch Property Details by URL
+
+```bash
+zillow-scrape "https://www.zillow.com/homedetails/1033-Crestview-Dr-APT-216-Mountain-View-CA-94040/19538316_zpid/"
+
+```
+
+#### Save JSON Output to File
+
+```bash
+zillow-scrape "1033 Crestview Dr APT 216, Mountain View, CA 94040" --json property.json
 
 ```
 
 **Options:**
 
 * `--headless`: Execute without a visible UI window.
-* `--csv [PATH]`: Define the output path for the CSV file. Defaults to `./output/`.
+* `--csv [PATH]`: Define the output path for CSV file (for listing searches only).
+* `--json [PATH]`: Define the output path for JSON file (for property details). If omitted, prints to console.
+
+* `--headless`: Execute without a visible UI window.
+* `--csv [PATH]`: Define the output path for CSV file (for listing searches only).
+* `--json [PATH]`: Define the output path for JSON file (for property details). If omitted, prints to console.
 
 ## Output Artifacts
 
 The application generates artifacts in the `./output` directory relative to the execution root:
 
 * **Logs**: `./output/logs/YYYYMMDD_HHMMSS.log` (Runtime events and debug traces).
-* **Data**: `./output/results_YYYYMMDD_HHMMSS.csv` (Scraped dataset).
+* **CSV Data** (for listing searches): `./output/results_YYYYMMDD_HHMMSS.csv` (Scraped dataset with columns: Scraped_At, Price, Beds, Baths, Sqft, Address, Link, Property_Type, Year_Built, Lot_Size, HOA).
+* **JSON Data** (for property details): Comprehensive property information in JSON format with address, price details, property basics, interior features, community amenities, location scores, nearby schools, and listing info.
 
 ## Development
 
