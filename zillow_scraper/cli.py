@@ -1,12 +1,11 @@
 import argparse
+import asyncio
 import csv
 import logging
 import os
 from datetime import datetime
 
-from .browsers import SmartScrollerBrowser
-from .parsers import ZillowExactParser
-from .services import ZillowService
+from .api import fetch_listings, fetch_property_by_address
 
 
 def setup_logging():
@@ -35,96 +34,165 @@ def setup_logging():
     logging.info(f"Logging initialized. Writing to {log_file}")
 
 
+def is_zillow_url(target: str) -> bool:
+    """Check if the target is a Zillow URL."""
+    return target.startswith("http://") or target.startswith("https://")
+
+
+def is_listing_search_url(target: str) -> bool:
+    """Check if the target is a listing search URL (contains /homes or location-based)."""
+    return "/homes" in target or (
+        "-" in target and "zillow.com" in target and "/homedetails/" not in target
+    )
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Scrape Zillow listings.")
-    parser.add_argument(
-        "target", help="The Zillow URL to scrape or an address to search for (use --address flag)"
+    parser = argparse.ArgumentParser(
+        description="Scrape Zillow listings or fetch detailed property information."
     )
     parser.add_argument(
-        "--address",
-        action="store_true",
-        help="Treat the target as an address and fetch detailed property information",
+        "target",
+        help=(
+            "Target can be: "
+            "(1) A Zillow property detail URL, "
+            "(2) A property address string, or "
+            "(3) A Zillow listing search URL"
+        ),
     )
     parser.add_argument(
         "--headless", action="store_true", help="Run without a visible browser window"
     )
     parser.add_argument(
-        "--csv", help="Output file name (default: auto-generated in ./output)", default=None
+        "--csv",
+        help="Output CSV file name for listing searches (default: auto-generated in ./output)",
+        default=None,
+    )
+    parser.add_argument(
+        "--json",
+        help="Output JSON file name for property details (default: print to console)",
+        default=None,
     )
     args = parser.parse_args()
 
     setup_logging()
 
-    browser = SmartScrollerBrowser(headless=args.headless)
-    parser_obj = ZillowExactParser()
-    service = ZillowService(browser, parser_obj)
-
     try:
-        if args.address:
-            # Address-based search for detailed property information
-            property_data = service.search_by_address(args.target)
+        # Detect what type of target we have
+        if is_zillow_url(args.target):
+            if is_listing_search_url(args.target):
+                # It's a listing search URL - use fetch_listings
+                logging.info(f"Detected listing search URL: {args.target}")
+                properties = asyncio.run(fetch_listings(args.target, headless=args.headless))
 
-            if property_data:
-                properties = [property_data]
                 print(f"\n{'=' * 60}")
-                print("PROPERTY FOUND: Detailed Information")
-                print(f"{'=' * 60}")
-                print(format_property_detail(property_data))
-            else:
-                properties = []
-                print(f"\n{'=' * 60}")
-                print(f"NO PROPERTY FOUND for address: {args.target}")
-                print(f"{'=' * 60}")
-        else:
-            # Original URL-based search
-            properties = service.run(args.target)
+                print(f"SCRAPE COMPLETE: Found {len(properties)} Listings")
+                print(f"{'=' * 60}\n")
 
-            print(f"\n{'=' * 60}")
-            print(f"SCRAPE COMPLETE: Found {len(properties)} Listings")
-            print(f"{'=' * 60}")
-
-            for p in properties:
-                print(format_property_listing(p))
-
-        # Determine output path
-        output_dir = "./output"
-        os.makedirs(output_dir, exist_ok=True)
-
-        if args.csv:
-            # If user provided a path, check if it is absolute. If not, put it in output_dir
-            csv_path = args.csv if os.path.isabs(args.csv) else os.path.join(output_dir, args.csv)
-        else:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            csv_path = os.path.join(output_dir, f"results_{timestamp}.csv")
-
-        if properties:
-            with open(csv_path, "w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow(
-                    [
-                        "Scraped_At",
-                        "Price",
-                        "Beds",
-                        "Baths",
-                        "Sqft",
-                        "Address",
-                        "Link",
-                        "Property_Type",
-                        "Year_Built",
-                        "Lot_Size",
-                        "HOA",
-                    ]
-                )
                 for p in properties:
-                    writer.writerow(p.to_csv_row())
-            logging.info(f"Data saved to {csv_path}")
+                    print(format_property_listing(p))
+
+                # Save to CSV if properties found
+                if properties:
+                    save_to_csv(properties, args.csv)
+                else:
+                    logging.warning("No properties found.")
+
+            else:
+                # It's a property detail URL - use fetch_property_by_address
+                logging.info(f"Detected property detail URL: {args.target}")
+                property_detail = asyncio.run(
+                    fetch_property_by_address(args.target, headless=args.headless)
+                )
+
+                if property_detail:
+                    # Output JSON
+                    json_output = property_detail.to_json(indent=2)
+
+                    if args.json:
+                        # Save to file
+                        output_dir = "./output"
+                        os.makedirs(output_dir, exist_ok=True)
+                        json_path = (
+                            args.json
+                            if os.path.isabs(args.json)
+                            else os.path.join(output_dir, args.json)
+                        )
+                        with open(json_path, "w", encoding="utf-8") as f:
+                            f.write(json_output)
+                        logging.info(f"Property details saved to {json_path}")
+                        print(f"\nProperty details saved to: {json_path}")
+                    else:
+                        # Print to console
+                        print(json_output)
+                else:
+                    print("No property found.")
         else:
-            logging.warning("No data found, skipping CSV generation.")
+            # It's an address string - use fetch_property_by_address
+            logging.info(f"Detected address string: {args.target}")
+            property_detail = asyncio.run(
+                fetch_property_by_address(args.target, headless=args.headless)
+            )
+
+            if property_detail:
+                # Output JSON
+                json_output = property_detail.to_json(indent=2)
+
+                if args.json:
+                    # Save to file
+                    output_dir = "./output"
+                    os.makedirs(output_dir, exist_ok=True)
+                    json_path = (
+                        args.json
+                        if os.path.isabs(args.json)
+                        else os.path.join(output_dir, args.json)
+                    )
+                    with open(json_path, "w", encoding="utf-8") as f:
+                        f.write(json_output)
+                    logging.info(f"Property details saved to {json_path}")
+                    print(f"\nProperty details saved to: {json_path}")
+                else:
+                    # Print to console
+                    print(json_output)
+            else:
+                print("No property found.")
 
     except Exception as e:
         logging.error(f"Fatal error: {e}", exc_info=True)
-    finally:
-        pass
+        print(f"Error: {e}")
+
+
+def save_to_csv(properties, csv_arg):
+    """Save properties to CSV file."""
+    output_dir = "./output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    if csv_arg:
+        csv_path = csv_arg if os.path.isabs(csv_arg) else os.path.join(output_dir, csv_arg)
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        csv_path = os.path.join(output_dir, f"results_{timestamp}.csv")
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            [
+                "Scraped_At",
+                "Price",
+                "Beds",
+                "Baths",
+                "Sqft",
+                "Address",
+                "Link",
+                "Property_Type",
+                "Year_Built",
+                "Lot_Size",
+                "HOA",
+            ]
+        )
+        for p in properties:
+            writer.writerow(p.to_csv_row())
+    logging.info(f"Data saved to {csv_path}")
+    print(f"Data saved to: {csv_path}")
 
 
 def format_property_listing(p):
@@ -136,23 +204,6 @@ def format_property_listing(p):
         f"{p.address}",
     ]
     return " | ".join(listing_parts)
-
-
-def format_property_detail(p):
-    """Format detailed property information for console output."""
-    lines = [
-        f"Address:       {p.address}",
-        f"Price:         {p.price}",
-        f"Beds:          {p.beds}",
-        f"Baths:         {p.baths}",
-        f"Square Feet:   {p.sqft}",
-        f"Property Type: {p.property_type}",
-        f"Year Built:    {p.year_built}",
-        f"Lot Size:      {p.lot_size}",
-        f"HOA:           {p.hoa}",
-        f"Link:          {p.link}",
-    ]
-    return "\n".join(lines)
 
 
 if __name__ == "__main__":
