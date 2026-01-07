@@ -15,6 +15,7 @@ class IPageSourceProvider(ABC):
         """Clean up resources."""
         pass
 
+
 class IParser(ABC):
     @abstractmethod
     def parse(self, html_content: str) -> List[PropertyData]:
