@@ -35,7 +35,7 @@ uv add git+[https://github.com/dev-ansung/zillow-scraper.git](https://github.com
 To install the package globally as a standalone command-line tool:
 
 ```bash
-uv tool install git+[https://github.com/dev-ansung/zillow-scraper.git](https://github.com/dev-ansung/zillow-scraper.git)
+uv tool install git+https://github.com/dev-ansung/zillow-scraper.git
 
 ```
 
