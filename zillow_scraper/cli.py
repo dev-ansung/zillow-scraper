@@ -37,7 +37,12 @@ def setup_logging():
 def main():
     parser = argparse.ArgumentParser(description="Scrape Zillow listings.")
     parser.add_argument(
-        "url", help="The Zillow URL to scrape")
+        "target", 
+        help="The Zillow URL to scrape or an address to search for (use --address flag)")
+    parser.add_argument(
+        "--address",
+        action="store_true",
+        help="Treat the target as an address and fetch detailed property information")
     parser.add_argument(
         "--headless", action="store_true", help="Run without a visible browser window")
     parser.add_argument(
@@ -49,18 +54,35 @@ def main():
     setup_logging()
     
     browser = SmartScrollerBrowser(headless=args.headless)
-    parser = ZillowExactParser()
-    service = ZillowService(browser, parser)
+    parser_obj = ZillowExactParser()
+    service = ZillowService(browser, parser_obj)
 
     try:
-        properties = service.run(args.url)
+        if args.address:
+            # Address-based search for detailed property information
+            property_data = service.search_by_address(args.target)
+            
+            if property_data:
+                properties = [property_data]
+                print(f"\n{'='*60}")
+                print(f"PROPERTY FOUND: Detailed Information")
+                print(f"{'='*60}")
+                print(format_property_detail(property_data))
+            else:
+                properties = []
+                print(f"\n{'='*60}")
+                print(f"NO PROPERTY FOUND for address: {args.target}")
+                print(f"{'='*60}")
+        else:
+            # Original URL-based search
+            properties = service.run(args.target)
 
-        print(f"\n{'='*60}")
-        print(f"SCRAPE COMPLETE: Found {len(properties)} Listings")
-        print(f"{'='*60}")
-        
-        for p in properties:
-            print(format_property_listing(p))
+            print(f"\n{'='*60}")
+            print(f"SCRAPE COMPLETE: Found {len(properties)} Listings")
+            print(f"{'='*60}")
+            
+            for p in properties:
+                print(format_property_listing(p))
 
         # Determine output path
         output_dir = "./output"
@@ -76,7 +98,10 @@ def main():
         if properties:
             with open(csv_path, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
-                writer.writerow(["Scraped_At", "Price", "Beds", "Baths", "Sqft", "Address", "Link"])
+                writer.writerow([
+                    "Scraped_At", "Price", "Beds", "Baths", "Sqft", "Address", "Link",
+                    "Property_Type", "Year_Built", "Lot_Size", "HOA"
+                ])
                 for p in properties:
                     writer.writerow(p.to_csv_row())
             logging.info(f"Data saved to {csv_path}")
@@ -97,6 +122,22 @@ def format_property_listing(p):
         f"{p.address}"
     ]
     return " | ".join(listing_parts)
+
+def format_property_detail(p):
+    """Format detailed property information for console output."""
+    lines = [
+        f"Address:       {p.address}",
+        f"Price:         {p.price}",
+        f"Beds:          {p.beds}",
+        f"Baths:         {p.baths}",
+        f"Square Feet:   {p.sqft}",
+        f"Property Type: {p.property_type}",
+        f"Year Built:    {p.year_built}",
+        f"Lot Size:      {p.lot_size}",
+        f"HOA:           {p.hoa}",
+        f"Link:          {p.link}",
+    ]
+    return "\n".join(lines)
 
 if __name__ == "__main__":
     main()
